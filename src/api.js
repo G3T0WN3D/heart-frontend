@@ -43,7 +43,7 @@ export const api = {
     // payload: { email, password }
     const res = await http('POST', '/login', payload);
     // backend geeft { userId }
-    saveSession({ userId: res.userId, isLoggedIn: true, activePage: 'swipe' });
+    saveSession({ userId: res.userId, isLoggedIn: true, is_admin: res.is_admin, activePage: 'swipe' });
     return res;
   },
 

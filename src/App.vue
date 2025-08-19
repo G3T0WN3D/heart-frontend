@@ -15,11 +15,11 @@
       <Home v-if="activePage==='home'" />
       <Register v-if="activePage==='register'" @registered="onRegistered"/>
       <Login v-if="activePage==='login'" @loggedIn="onLoggedIn"/>
-      <Swipe v-if="activePage==='swipe'" :userId="userId" @matched="openMatches"/>
-      <Matches v-if="activePage==='matches'" :userId="userId" @openChat="openChat"/>
+      <Swipe v-if="activePage==='swipe' && !isAdmin" :userId="userId" @matched="openMatches" />
+      <Matches v-if="activePage==='matches' && !isAdmin" :userId="userId" @openChat="openChat" />
       <Chat v-if="activePage==='chat'" :userId="userId" :matchId="selectedMatchId"/>
       <UpdateProfile v-if="activePage==='update-profile'" :userId="userId"/>
-      <AdminDashboard v-if="activePage==='admin-dashboard'" :userId="userId" />
+      <AdminDashboard v-if="activePage==='admin'" :userId="userId" />
     </div>
 
     <footer class="footer">
@@ -44,6 +44,7 @@ export default {
   data() {
     return {
       isLoggedIn: false,
+      isAdmin: false,
       userId: null,
       activePage: 'home',
       selectedMatchId: null,
@@ -52,51 +53,69 @@ export default {
   computed: {
     visiblePages() {
       if (!this.isLoggedIn) return ['home', 'register', 'login'];
-      return ['home', 'swipe', 'matches', 'update-profile'];
+      return this.isAdmin
+        ? ['home', 'admin']
+        : ['home', 'swipe', 'matches', 'update-profile'];
     }
   },
+
   mounted() {
-    // Sessie herstellen na refresh
     const s = api.getSession(); // { userId, isLoggedIn, activePage }
     if (s?.isLoggedIn && s?.userId) {
       this.isLoggedIn = true;
       this.userId = s.userId;
-      this.activePage = s.activePage || 'swipe';
+      api.getMe(s.userId).then(me => {
+        this.isAdmin = me.is_admin;
+        this.activePage = me.is_admin ? 'admin-dashboard' : (s.activePage || 'swipe');
+      });
     }
   },
   methods: {
     label(page) {
       const map = {
-        home: 'Home', register: 'Register', login: 'Login',
-        swipe: 'Swipe', matches: 'Matches', 'update-profile': 'Profile'
+        home: 'Home',
+        register: 'Register',
+        login: 'Login',
+        swipe: 'Swipe',
+        matches: 'Matches',
+        'update-profile': 'Profile',
+        'admin-dashboard': 'AdminPanel'
       };
       return map[page] || page;
     },
-    changePage(p) { 
-      this.activePage = p; 
-      api.setActivePage(p); 
+    changePage(p) {
+      this.activePage = p;
+      api.setActivePage(p);
     },
     onRegistered({ userId }) {
-      this.isLoggedIn = true; this.userId = userId; this.changePage('swipe');
+      this.isLoggedIn = true;
+      this.userId = userId;
+      this.changePage('swipe');
     },
     async onLoggedIn({ userId }) {
       this.isLoggedIn = true;
       this.userId = userId;
-
       const me = await api.getMe(userId);
-      this.isAdmin = !!me.is_admin;
+      this.isAdmin = me.is_admin;
+      this.changePage(me.is_admin ? 'admin' : 'swipe');
+    },
 
-      // 🔽 Stuur admin meteen naar dashboard
-      this.changePage(this.isAdmin ? 'admin-dashboard' : 'swipe');
-    },
     logout() {
-      this.isLoggedIn = false; this.userId = null; this.changePage('home');
+      this.isLoggedIn = false;
+      this.userId = null;
+      this.changePage('home');
     },
-    openMatches() { this.changePage('matches'); },
-    openChat(matchId) { this.selectedMatchId = matchId; this.changePage('chat'); }
+    openMatches() {
+      this.changePage('matches');
+    },
+    openChat(matchId) {
+      this.selectedMatchId = matchId;
+      this.changePage('chat');
+    }
   }
 };
 </script>
+
 
 <style>
 body { font-family: 'Poppins', sans-serif; margin:0; background:#fafafa; color:#333; }
